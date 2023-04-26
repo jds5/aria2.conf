@@ -95,6 +95,22 @@ UPLOAD_FILE() {
     TASK_INFO
     RETRY=0
     RETRY_NUM=3
+     if [ -d "${LOCAL_PATH}" ]; then
+         find "${LOCAL_PATH}" \( -name "*.mp4" -o -name "*.mkv" -o -name "*.avi" \) | while read -r file; do
+             echo "Processing ${file}..."
+             if ffmpeg -nostdin -i "${file}" 2>&1 | grep "Stream #.*: Subtitle:.*" >/dev/null; then
+                 ffmpeg -nostdin -i "${file}" -vn -an -map 0:s:0  "${file%.*}".srt >/dev/null
+             fi
+         done
+     elif [ "${LOCAL_PATH##*.}" = "mp4" -o "${LOCAL_PATH##*.}" = "avi" -o "${LOCAL_PATH##*.}" = "mkv" ]; then
+         if ffmpeg -nostdin -i "${LOCAL_PATH}" 2>&1 | grep "Stream #.*: Subtitle:.*" >/dev/null; then
+             ffmpeg -nostdin -i "${LOCAL_PATH}" -map 0:s:0  "${LOCAL_PATH%.*}".srt >/dev/null
+             rclone move -v "${LOCAL_PATH%.*}.srt" "${REMOTE_PATH%}"
+             echo "srt file generated!"
+         else
+             echo "no subtitles found"
+         fi
+     fi
     while [ ${RETRY} -le ${RETRY_NUM} ]; do
         [ ${RETRY} != 0 ] && (
             echo
